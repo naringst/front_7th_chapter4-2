@@ -37,11 +37,11 @@ import {
   VStack,
   Wrap,
 } from '@chakra-ui/react';
-import { useScheduleContext } from './ScheduleContext.tsx';
-import { Lecture } from './types.ts';
-import { parseSchedule } from './utils.ts';
-import { DAY_LABELS } from './constants.ts';
-import { fetchAllLectures } from './api/fetchAllLectures.ts';
+import { useScheduleContext } from '../schedules/ScheduleContext.tsx';
+import { Lecture } from '../../types.ts';
+import { parseSchedule } from '../../utils.ts';
+import { DAY_LABELS } from '../../constants.ts';
+import { fetchAllLectures } from '../../api/fetchAllLectures.ts';
 
 interface Props {
   searchInfo: {
