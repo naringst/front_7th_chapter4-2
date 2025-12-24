@@ -18,10 +18,9 @@ import {
   Thead,
   Tr,
 } from '@chakra-ui/react';
-import { useScheduleContext } from '../schedules/ScheduleContext.tsx';
 import { Lecture, SearchInfo, SearchOption } from '../../types.ts';
-import { parseSchedule } from '../../utils.ts';
 import { filterLectures } from './services/lectureFilterService.ts';
+import { useScheduleStore } from '../schedules/store/scheduleStore.ts';
 
 const PAGE_SIZE = 100;
 
@@ -38,7 +37,8 @@ const SearchResult = ({
   searchOptions,
   onClose,
 }: Props) => {
-  const { setSchedulesMap } = useScheduleContext();
+  // 액션만 구독 - 데이터 변경에 리렌더링 안 됨
+  const addScheduleToStore = useScheduleStore((state) => state.addSchedule);
 
   const loaderWrapperRef = useRef<HTMLDivElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -56,20 +56,10 @@ const SearchResult = ({
       if (!searchInfo) return;
 
       const { tableId } = searchInfo;
-
-      const schedules = parseSchedule(lecture.schedule).map((schedule) => ({
-        ...schedule,
-        lecture,
-      }));
-
-      setSchedulesMap((prev) => ({
-        ...prev,
-        [tableId]: [...prev[tableId], ...schedules],
-      }));
-
+      addScheduleToStore(tableId, lecture);
       onClose();
     },
-    [searchInfo, setSchedulesMap, onClose],
+    [searchInfo, addScheduleToStore, onClose],
   );
 
   useEffect(() => {

@@ -17,13 +17,14 @@ import { Schedule } from '../../types.ts';
 import { fill2, parseHnM } from '../../utils.ts';
 import { useDndContext, useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { ComponentProps, Fragment } from 'react';
+import { ComponentProps, Fragment, memo } from 'react';
+import { useScheduleStore } from './store/scheduleStore.ts';
+import { useShallow } from 'zustand/shallow';
+import ScheduleDndProvider from './ScheduleDndProvider.tsx';
 
 interface Props {
   tableId: string;
-  schedules: Schedule[];
   onScheduleTimeClick?: (timeInfo: { day: string; time: number }) => void;
-  onDeleteButtonClick?: (timeInfo: { day: string; time: number }) => void;
 }
 
 const TIMES = [
@@ -38,36 +39,27 @@ const TIMES = [
     .map((v) => `${parseHnM(v)}~${parseHnM(v + 50 * 분)}`),
 ] as const;
 
-const ScheduleTable = ({
-  tableId,
-  schedules,
-  onScheduleTimeClick,
-  onDeleteButtonClick,
-}: Props) => {
-  const getColor = (lectureId: string): string => {
-    const lectures = [...new Set(schedules.map(({ lecture }) => lecture.id))];
-    const colors = ['#fdd', '#ffd', '#dff', '#ddf', '#fdf', '#dfd'];
-    return colors[lectures.indexOf(lectureId) % colors.length];
-  };
-
-  const dndContext = useDndContext();
-
-  const getActiveTableId = () => {
-    const activeId = dndContext.active?.id;
-    if (activeId) {
-      return String(activeId).split(':')[0];
-    }
-    return null;
-  };
-
-  const activeTableId = getActiveTableId();
-
+const ScheduleTable = ({ tableId, onScheduleTimeClick }: Props) => {
   return (
-    <Box
-      position="relative"
-      outline={activeTableId === tableId ? '5px dashed' : undefined}
-      outlineColor="blue.300"
-    >
+    <Box position="relative">
+      {/* 정적인 그리드 - 드래그해도 리렌더링 안 됨 */}
+      <ScheduleGrid onScheduleTimeClick={onScheduleTimeClick} />
+
+      {/* 드래그 영역 - DndContext 안에서만 리렌더링 */}
+      <ScheduleDndProvider>
+        <DraggableScheduleArea tableId={tableId} />
+      </ScheduleDndProvider>
+    </Box>
+  );
+};
+
+const ScheduleGrid = memo(
+  ({
+    onScheduleTimeClick,
+  }: {
+    onScheduleTimeClick?: (timeInfo: { day: string; time: number }) => void;
+  }) => {
+    return (
       <Grid
         templateColumns={`120px repeat(${DAY_LABELS.length}, ${CellSize.WIDTH}px)`}
         templateRows={`40px repeat(${TIMES.length}, ${CellSize.HEIGHT}px)`}
@@ -123,7 +115,45 @@ const ScheduleTable = ({
           </Fragment>
         ))}
       </Grid>
+    );
+  },
+);
 
+const DraggableScheduleArea = ({ tableId }: { tableId: string }) => {
+  const schedules = useScheduleStore(
+    useShallow((state) => state.schedulesMap[tableId] ?? []),
+  );
+  const removeSchedule = useScheduleStore((state) => state.removeSchedule);
+
+  const dndContext = useDndContext();
+
+  const getActiveTableId = () => {
+    const activeId = dndContext.active?.id;
+    if (activeId) {
+      return String(activeId).split(':')[0];
+    }
+    return null;
+  };
+
+  const activeTableId = getActiveTableId();
+
+  const getColor = (lectureId: string): string => {
+    const lectures = [...new Set(schedules.map(({ lecture }) => lecture.id))];
+    const colors = ['#fdd', '#ffd', '#dff', '#ddf', '#fdf', '#dfd'];
+    return colors[lectures.indexOf(lectureId) % colors.length];
+  };
+
+  return (
+    <Box
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      pointerEvents="none"
+      outline={activeTableId === tableId ? '5px dashed' : undefined}
+      outlineColor="blue.300"
+    >
       {schedules.map((schedule, index) => (
         <DraggableSchedule
           key={`${schedule.lecture.title}-${index}`}
@@ -131,10 +161,7 @@ const ScheduleTable = ({
           data={schedule}
           bg={getColor(schedule.lecture.id)}
           onDeleteButtonClick={() =>
-            onDeleteButtonClick?.({
-              day: schedule.day,
-              time: schedule.range[0],
-            })
+            removeSchedule(tableId, schedule.day, schedule.range[0])
           }
         />
       ))}
@@ -169,6 +196,7 @@ const DraggableSchedule = ({
           p={1}
           boxSizing="border-box"
           cursor="pointer"
+          pointerEvents="auto"
           ref={setNodeRef}
           transform={CSS.Translate.toString(transform)}
           {...listeners}

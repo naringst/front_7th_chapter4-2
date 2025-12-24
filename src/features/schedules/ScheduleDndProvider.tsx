@@ -6,8 +6,8 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { PropsWithChildren } from 'react';
-import { CellSize, DAY_LABELS } from '../../constants.ts';
-import { useScheduleContext } from './ScheduleContext.tsx';
+import { CellSize } from '../../constants.ts';
+import { useScheduleStore } from './store/scheduleStore.ts';
 
 function createSnapModifier(): Modifier {
   return ({ transform, containerNodeRect, draggingNodeRect }) => {
@@ -46,7 +46,8 @@ function createSnapModifier(): Modifier {
 const modifiers = [createSnapModifier()];
 
 export default function ScheduleDndProvider({ children }: PropsWithChildren) {
-  const { schedulesMap, setSchedulesMap } = useScheduleContext();
+  const moveSchedule = useScheduleStore((state) => state.moveSchedule);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -60,26 +61,10 @@ export default function ScheduleDndProvider({ children }: PropsWithChildren) {
     const { active, delta } = event;
     const { x, y } = delta;
     const [tableId, index] = active.id.split(':');
-    const schedule = schedulesMap[tableId][index];
-    const nowDayIndex = DAY_LABELS.indexOf(
-      schedule.day as (typeof DAY_LABELS)[number],
-    );
     const moveDayIndex = Math.floor(x / 80);
     const moveTimeIndex = Math.floor(y / 30);
 
-    setSchedulesMap({
-      ...schedulesMap,
-      [tableId]: schedulesMap[tableId].map((targetSchedule, targetIndex) => {
-        if (targetIndex !== Number(index)) {
-          return { ...targetSchedule };
-        }
-        return {
-          ...targetSchedule,
-          day: DAY_LABELS[nowDayIndex + moveDayIndex],
-          range: targetSchedule.range.map((time) => time + moveTimeIndex),
-        };
-      }),
-    });
+    moveSchedule(tableId, Number(index), moveDayIndex, moveTimeIndex);
   };
 
   return (
