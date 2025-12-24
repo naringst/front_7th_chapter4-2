@@ -1,4 +1,5 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Box,
   Checkbox,
@@ -206,6 +207,15 @@ const MajorCheckbox = memo(
     onChange: (majors: string[]) => void;
     allMajors: string[];
   }) => {
+    const parentRef = useRef<HTMLDivElement>(null);
+
+    const virtualizer = useVirtualizer({
+      count: allMajors.length,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => 24,
+      overscan: 2,
+    });
+
     return (
       <FormControl>
         <FormLabel>전공</FormLabel>
@@ -224,8 +234,8 @@ const MajorCheckbox = memo(
               </Tag>
             ))}
           </Wrap>
-          <Stack
-            spacing={2}
+          <Box
+            ref={parentRef}
             overflowY="auto"
             h="100px"
             border="1px solid"
@@ -233,14 +243,27 @@ const MajorCheckbox = memo(
             borderRadius={5}
             p={2}
           >
-            {allMajors.map((major) => (
-              <Box key={major}>
-                <Checkbox key={major} size="sm" value={major}>
-                  {major.replace(/<p>/gi, ' ')}
-                </Checkbox>
-              </Box>
-            ))}
-          </Stack>
+            <Box h={`${virtualizer.getTotalSize()}px`} position="relative">
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const major = allMajors[virtualItem.index];
+                return (
+                  <Box
+                    key={major}
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    w="100%"
+                    h={`${virtualItem.size}px`}
+                    transform={`translateY(${virtualItem.start}px)`}
+                  >
+                    <Checkbox size="sm" value={major}>
+                      {major.replace(/<p>/gi, ' ')}
+                    </Checkbox>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
         </CheckboxGroup>
       </FormControl>
     );
